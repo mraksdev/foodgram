@@ -119,6 +119,8 @@ jobs:
   send_message:
     runs-on: ubuntu-latest
     needs: deploy
+    if: always()
+    continue-on-error: true
     steps:
       - name: Send message
         uses: appleboy/telegram-action@master
