@@ -51,10 +51,12 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """Expose the ingredient data on the recipe ingredient."""
-        instance.id = instance.ingredient.id
-        instance.name = instance.ingredient.name
-        instance.measurement_unit = instance.ingredient.measurement_unit
-        return super().to_representation(instance)
+        return {
+            'id': instance.ingredient.id,
+            'name': instance.ingredient.name,
+            'measurement_unit': instance.ingredient.measurement_unit,
+            'amount': instance.amount,
+        }
 
 
 class RecipeMinifiedSerializer(serializers.ModelSerializer):

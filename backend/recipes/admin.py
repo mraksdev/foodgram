@@ -43,7 +43,7 @@ class RecipeAdmin(admin.ModelAdmin):
             favorite_count=Count('favorited_by'),
         )
 
-    @admin.display(description='favorites')
+    @admin.display(description='избранное')
     def favorite_count(self, obj):
         """Return the number of favorites for a recipe."""
         return obj.favorite_count

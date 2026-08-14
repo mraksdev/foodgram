@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db.models import Count, Prefetch
 from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import status
 from rest_framework.decorators import action
@@ -69,8 +70,12 @@ class UserViewSet(DjoserUserViewSet):
     @action(detail=False, methods=['get'])
     def subscriptions(self, request):
         """Return users the current user is subscribed to."""
-        authors = User.objects.filter(
-            following__user=request.user,
+        recipes_prefetch = Prefetch('recipes', to_attr='prefetched_recipes')
+        authors = (
+            User.objects.filter(followers__user=request.user)
+            .annotate(recipes_count=Count('recipes'))
+            .prefetch_related(recipes_prefetch)
+            .distinct()
         )
         page = self.paginate_queryset(authors)
         serializer = UserWithRecipesSerializer(

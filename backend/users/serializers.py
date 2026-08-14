@@ -15,9 +15,6 @@ class AvatarSerializer(serializers.Serializer):
 
     avatar = Base64ImageField(required=True)
 
-    class Meta:
-        fields = ('avatar',)
-
 
 class UserFieldsMixin(serializers.Serializer):
     """Mixin with is_subscribed and avatar fields for users."""
@@ -31,7 +28,7 @@ class UserFieldsMixin(serializers.Serializer):
         user = getattr(request, 'user', None)
         if user is None or user.is_anonymous:
             return False
-        return user.follower.filter(author=obj).exists()
+        return user.subscriptions.filter(author=obj).exists()
 
     def get_avatar(self, obj):
         """Return the avatar URL or None."""
@@ -91,13 +88,20 @@ class UserWithRecipesSerializer(UserFieldsMixin, serializers.ModelSerializer):
 
     def get_recipes_count(self, obj) -> int:
         """Return the number of recipes of the user."""
+        annotated = getattr(obj, 'recipes_count', None)
+        if annotated is not None:
+            return annotated
         return obj.recipes.count()
 
     def get_recipes(self, obj):
         """Return user recipes limited by the recipes_limit parameter."""
         from recipes.serializers import RecipeMinifiedSerializer
 
-        recipes = obj.recipes.all()
+        recipes = getattr(
+            obj,
+            'prefetched_recipes',
+            obj.recipes.all(),
+        )
         request = self.context.get('request')
         recipes_limit = None
         if request is not None:

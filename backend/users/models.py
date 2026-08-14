@@ -6,11 +6,13 @@ class User(AbstractUser):
     """Custom user with email as the unique login field."""
 
     email = models.EmailField(
+        'адрес электронной почты',
         max_length=254,
         unique=True,
         blank=False,
     )
     avatar = models.ImageField(
+        'аватар',
         upload_to='avatars/',
         null=True,
         blank=True,
@@ -18,6 +20,10 @@ class User(AbstractUser):
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
+
+    class Meta(AbstractUser.Meta):
+        verbose_name = 'пользователь'
+        verbose_name_plural = 'пользователи'
 
     def __str__(self) -> str:
         return self.email
@@ -29,15 +35,19 @@ class Subscription(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='follower',
+        related_name='subscriptions',
+        verbose_name='подписчик',
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='following',
+        related_name='followers',
+        verbose_name='автор',
     )
 
     class Meta:
+        verbose_name = 'подписка'
+        verbose_name_plural = 'подписки'
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'author'],
