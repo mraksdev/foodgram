@@ -20,7 +20,7 @@ services:
       retries: 10
 
   backend:
-    build: ../backend
+    image: ${DOCKER_USERNAME}/foodgram-backend:latest
     container_name: foodgram-backend
     restart: always
     env_file:
@@ -33,23 +33,25 @@ services:
       - media:/app/media
 
   frontend:
-    build: ../frontend
+    image: ${DOCKER_USERNAME}/foodgram-frontend:latest
     container_name: foodgram-front
     restart: "no"
+    env_file:
+      - .env
     command: cp -r /app/build/. /static/
     volumes:
       - static:/static
 
-  nginx:
-    image: nginx:1.22.1
+  gateway:
+    image: ${DOCKER_USERNAME}/foodgram-gateway:latest
     container_name: foodgram-gateway
     restart: always
+    env_file:
+      - .env
     depends_on:
       - backend
     ports:
       - "${FOODGRAM_PORT:-8080}:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - static:/staticfiles
       - media:/media
-      - ../docs/:/usr/share/nginx/html/api/docs/

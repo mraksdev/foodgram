@@ -1,0 +1,11 @@
+.git/
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+media/
+static/
+frontend/build/
+frontend/node_modules/
+.env
+backend/venv/

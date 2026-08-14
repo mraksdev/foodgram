@@ -3,13 +3,12 @@
 import json
 from pathlib import Path
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from recipes.models import Ingredient
 
-DEFAULT_PATH = (
-    Path(__file__).resolve().parents[4] / 'data' / 'ingredients.json'
-)
+DEFAULT_PATH = settings.BASE_DIR / 'data' / 'ingredients.json'
 
 
 class Command(BaseCommand):
