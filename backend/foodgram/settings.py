@@ -137,13 +137,17 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PAGINATION_CLASS': (
-        'rest_framework.pagination.PageNumberPagination'
+        'rest_framework.pagination.LimitOffsetPagination'
     ),
     'PAGE_SIZE': 6,
 }
 
 DJOSER = {
     'LOGIN_FIELD': 'email',
+    'HIDE_USERS': False,
+    'ACTIVATION_URL': 'activate/{uid}/{token}/',
+    'PASSWORD_RESET_CONFIRM_URL': 'reset-password/{uid}/{token}/',
+    'USERNAME_RESET_CONFIRM_URL': 'username-reset/{uid}/{token}/',
     'SERIALIZERS': {
         'user_create': 'users.serializers.CustomUserCreateSerializer',
         'user': 'users.serializers.CustomUserSerializer',
