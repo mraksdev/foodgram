@@ -26,7 +26,8 @@ class RecipeFilter(filters.FilterSet):
 
     def filter_tags(self, queryset, name, value):
         """Filter recipes by the tag slug."""
-        return queryset.filter(tags__slug=value)
+        slugs = self.request.GET.getlist(name) or [value]
+        return queryset.filter(tags__slug__in=slugs).distinct()
 
     def filter_is_favorited(self, queryset, name, value):
         """Filter recipes by the current user's favorites."""
