@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.db.models import Count
+from django.urls import reverse
+from django.utils.html import format_html
 
 from .models import (
     Favorite,
@@ -49,14 +51,14 @@ class RecipeIngredientAdmin(admin.ModelAdmin):
 class RecipeAdmin(admin.ModelAdmin):
     """Admin panel for recipes."""
 
-    list_display = ('id', 'name', 'author', 'favorite_count')
+    list_display = ('id', 'name', 'author_link', 'favorite_count')
     search_fields = ('name', 'author__email', 'author__username')
     list_filter = ('tags',)
     inlines = (RecipeIngredientInline,)
 
     def get_queryset(self, request):
         """Annotate recipes with the number of favorites."""
-        return super().get_queryset(request).annotate(
+        return super().get_queryset(request).select_related('author').annotate(
             favorite_count=Count('favorited_by'),
         )
 
@@ -64,6 +66,15 @@ class RecipeAdmin(admin.ModelAdmin):
     def favorite_count(self, obj):
         """Return the number of favorites for a recipe."""
         return obj.favorite_count
+
+    @admin.display(description='автор')
+    def author_link(self, obj):
+        """Return the author name as a link to the user."""
+        return format_html(
+            '<a href="{}">{}</a>',
+            reverse('admin:users_user_change', args=[obj.author.id]),
+            obj.author.username,
+        )
 
 
 @admin.register(ShortLink)
