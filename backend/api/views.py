@@ -1,15 +1,7 @@
 import uuid
 
 from django.contrib.auth import get_user_model
-from django.db.models import (
-    BooleanField,
-    Count,
-    Exists,
-    OuterRef,
-    Prefetch,
-    Sum,
-    Value,
-)
+from django.db.models import Count, Prefetch, Sum
 from django.http import HttpResponse
 from django.urls import reverse
 from django_filters.rest_framework import DjangoFilterBackend
@@ -38,12 +30,10 @@ from api.serializers import (
     UserWithRecipesSerializer,
 )
 from recipes.models import (
-    Favorite,
     Ingredient,
     Recipe,
     RecipeIngredient,
     ShortLink,
-    ShoppingCart,
     Tag,
 )
 
@@ -119,38 +109,15 @@ class RecipeViewSet(RelationActionsMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Return recipes annotated with user list flags."""
-        user = self.request.user
-        queryset = (
-            Recipe.objects.select_related('author')
+        return (
+            Recipe.objects.with_user_flags(self.request.user)
+            .select_related('author')
             .prefetch_related(
                 'tags',
                 'recipe_ingredients__ingredient',
             )
             .order_by('-created')
         )
-        if user.is_authenticated:
-            return queryset.annotate(
-                is_favorited=Exists(
-                    Favorite.objects.filter(
-                        user=user,
-                        recipe=OuterRef('pk'),
-                    )
-                ),
-                is_in_shopping_cart=Exists(
-                    ShoppingCart.objects.filter(
-                        user=user,
-                        recipe=OuterRef('pk'),
-                    )
-                ),
-            )
-        return queryset.annotate(
-            is_favorited=Value(False, output_field=BooleanField()),
-            is_in_shopping_cart=Value(False, output_field=BooleanField()),
-        )
-
-    def perform_create(self, serializer):
-        """Set the current user as the recipe author."""
-        serializer.save(author=self.request.user)
 
     @action(detail=True, methods=('post',))
     def favorite(self, request, pk=None):
@@ -204,7 +171,6 @@ class RecipeViewSet(RelationActionsMixin, viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=('get',),
         permission_classes=(IsAuthenticated,),
     )
     def download_shopping_cart(self, request):

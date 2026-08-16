@@ -1,5 +1,6 @@
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import BooleanField, Exists, OuterRef, Value
 
 MAX_RECIPE_INGREDIENT_AMOUNT = 32000
 
@@ -43,6 +44,32 @@ class Ingredient(models.Model):
         return self.name
 
 
+class RecipeQuerySet(models.QuerySet):
+    """QuerySet annotating user list flags on recipes."""
+
+    def with_user_flags(self, user):
+        """Annotate is_favorited and is_in_shopping_cart flags."""
+        if user.is_authenticated:
+            return self.annotate(
+                is_favorited=Exists(
+                    Favorite.objects.filter(
+                        user=user,
+                        recipe=OuterRef('pk'),
+                    )
+                ),
+                is_in_shopping_cart=Exists(
+                    ShoppingCart.objects.filter(
+                        user=user,
+                        recipe=OuterRef('pk'),
+                    )
+                ),
+            )
+        return self.annotate(
+            is_favorited=Value(False, output_field=BooleanField()),
+            is_in_shopping_cart=Value(False, output_field=BooleanField()),
+        )
+
+
 class Recipe(models.Model):
     """Recipe created by an author."""
 
@@ -68,6 +95,8 @@ class Recipe(models.Model):
         related_name='recipes',
         verbose_name='ингредиенты',
     )
+
+    objects = RecipeQuerySet.as_manager()
 
     class Meta:
         verbose_name = 'рецепт'

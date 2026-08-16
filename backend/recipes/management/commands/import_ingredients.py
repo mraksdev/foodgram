@@ -26,7 +26,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         """Read the file and save ingredients idempotently."""
-        path = Path(options['path'])
+        path = Path(options.get('path', str(DEFAULT_PATH)))
         if not path.exists():
             raise FileNotFoundError(
                 'Ingredients file not found: ' + str(path)

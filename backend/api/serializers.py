@@ -84,13 +84,13 @@ class UserFieldsMixin(serializers.Serializer):
     is_subscribed = serializers.SerializerMethodField()
     avatar = serializers.SerializerMethodField()
 
-    def get_is_subscribed(self, obj) -> bool:
+    def get_is_subscribed(self, user) -> bool:
         """Return whether the current user subscribes to this user."""
         request = self.context.get('request')
-        user = getattr(request, 'user', None)
-        if not user or not user.is_authenticated:
+        current_user = getattr(request, 'user', None)
+        if not current_user or not current_user.is_authenticated:
             return False
-        return user.subscriptions.filter(author_id=obj.id).exists()
+        return current_user.subscriptions.filter(author_id=user.id).exists()
 
     def get_avatar(self, obj):
         """Return the avatar URL or None."""
@@ -173,8 +173,8 @@ class RecipeSerializer(serializers.ModelSerializer):
     )
     image = Base64ImageField()
     cooking_time = serializers.IntegerField(min_value=1)
-    is_favorited = serializers.SerializerMethodField()
-    is_in_shopping_cart = serializers.SerializerMethodField()
+    is_favorited = serializers.BooleanField(read_only=True)
+    is_in_shopping_cart = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Recipe
@@ -190,26 +190,6 @@ class RecipeSerializer(serializers.ModelSerializer):
             'text',
             'cooking_time',
         )
-
-    def get_is_favorited(self, obj) -> bool:
-        """Return whether the recipe is in the user's favorites."""
-        annotated = getattr(obj, 'is_favorited', None)
-        if annotated is not None:
-            return annotated
-        request = self.context.get('request')
-        if not request or not request.user.is_authenticated:
-            return False
-        return obj.favorite.filter(user=request.user).exists()
-
-    def get_is_in_shopping_cart(self, obj) -> bool:
-        """Return whether the recipe is in the user's cart."""
-        annotated = getattr(obj, 'is_in_shopping_cart', None)
-        if annotated is not None:
-            return annotated
-        request = self.context.get('request')
-        if not request or not request.user.is_authenticated:
-            return False
-        return obj.shoppingcart.filter(user=request.user).exists()
 
     def validate_tags(self, value):
         """Reject duplicate tags."""
@@ -233,9 +213,14 @@ class RecipeSerializer(serializers.ModelSerializer):
         """Create a recipe with ingredients and tags."""
         ingredients = validated_data.pop('recipe_ingredients')
         tags = validated_data.pop('tags')
-        recipe = Recipe.objects.create(**validated_data)
+        recipe = Recipe.objects.create(
+            author=self.context['request'].user,
+            **validated_data,
+        )
         recipe.tags.set(tags)
         self._save_ingredients(recipe, ingredients)
+        recipe.is_favorited = False
+        recipe.is_in_shopping_cart = False
         return recipe
 
     def update(self, instance, validated_data):
@@ -244,8 +229,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         tags = validated_data.pop('tags', None)
         recipe = super().update(instance, validated_data)
         if ingredients is not None:
-            recipe.recipe_ingredients.all().delete()
-            self._save_ingredients(recipe, ingredients)
+            instance.recipe_ingredients.all().delete()
+            self._save_ingredients(instance, ingredients)
         if tags is not None:
             recipe.tags.set(tags)
         return recipe

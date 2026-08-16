@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.db.models import Count
 from django.urls import reverse
-from django.utils.html import format_html
+from django.utils.html import escape
 
 from .models import (
     Favorite,
@@ -63,17 +63,19 @@ class RecipeAdmin(admin.ModelAdmin):
         )
 
     @admin.display(description='избранное')
-    def favorite_count(self, obj):
+    def favorite_count(self, recipe):
         """Return the number of favorites for a recipe."""
-        return obj.favorite_count
+        return recipe.favorite_count
 
     @admin.display(description='автор')
-    def author_link(self, obj):
+    def author_link(self, recipe):
         """Return the author name as a link to the user."""
-        return format_html(
-            '<a href="{}">{}</a>',
-            reverse('admin:users_user_change', args=(obj.author.id,)),
-            obj.author.username,
+        return (
+            '<a href="'
+            + reverse('admin:users_user_change', args=(recipe.author.id,))
+            + '">'
+            + escape(recipe.author.username)
+            + '</a>'
         )
 
 
