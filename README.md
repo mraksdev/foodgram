@@ -1,6 +1,6 @@
 # Foodgram
 
-![Foodgram workflow](https://github.com/mraksdev/foodgram/actions/workflows/foodgram_cd.yml/badge.svg)
+[![Foodgram workflow](https://github.com/mraksdev/foodgram/actions/workflows/foodgram_cd.yml/badge.svg)](https://github.com/mraksdev/foodgram/actions/workflows/foodgram_cd.yml)
 
 ## Описание
 
