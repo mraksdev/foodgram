@@ -3,6 +3,7 @@ from django.db import models
 from django.db.models import BooleanField, Exists, OuterRef, Value
 
 MAX_RECIPE_INGREDIENT_AMOUNT = 32000
+MAX_RECIPE_COOKING_TIME = 32000
 
 
 class Tag(models.Model):
@@ -82,7 +83,13 @@ class Recipe(models.Model):
     name = models.CharField('название', max_length=256)
     image = models.ImageField('изображение', upload_to='recipes/')
     text = models.TextField('описание')
-    cooking_time = models.PositiveSmallIntegerField('время приготовления')
+    cooking_time = models.PositiveSmallIntegerField(
+        'время приготовления',
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(MAX_RECIPE_COOKING_TIME),
+        ],
+    )
     created = models.DateTimeField('дата создания', auto_now_add=True)
     tags = models.ManyToManyField(
         Tag,
@@ -141,7 +148,7 @@ class RecipeIngredient(models.Model):
         ]
 
     def __str__(self) -> str:
-        return str(self.ingredient) + ' in ' + str(self.recipe)
+        return '{} in {}'.format(self.ingredient, self.recipe)
 
 
 class UserRecipeRelation(models.Model):
@@ -169,7 +176,7 @@ class UserRecipeRelation(models.Model):
         ]
 
     def __str__(self) -> str:
-        return str(self.user) + ' -> ' + str(self.recipe)
+        return '{} -> {}'.format(self.user, self.recipe)
 
 
 class Favorite(UserRecipeRelation):

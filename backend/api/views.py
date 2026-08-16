@@ -1,7 +1,7 @@
 import uuid
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Prefetch, Sum
+from django.db.models import Count, F, Prefetch, Sum
 from django.http import HttpResponse
 from django.urls import reverse
 from django_filters.rest_framework import DjangoFilterBackend
@@ -103,7 +103,7 @@ class RecipeViewSet(RelationActionsMixin, viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         """Return a minified serializer for the relation actions."""
-        if self.action in ('favorite', 'shopping_cart'):
+        if self.action in {'favorite', 'shopping_cart'}:
             return RecipeMinifiedSerializer
         return super().get_serializer_class()
 
@@ -179,17 +179,20 @@ class RecipeViewSet(RelationActionsMixin, viewsets.ModelViewSet):
             RecipeIngredient.objects.filter(
                 recipe__shoppingcart__user=request.user,
             )
-            .values('ingredient__name', 'ingredient__measurement_unit')
+            .values(
+                name=F('ingredient__name'),
+                measurement_unit=F('ingredient__measurement_unit'),
+            )
             .annotate(total=Sum('amount'))
-            .order_by('ingredient__name')
+            .order_by('name')
         )
         lines = [
-            ingredient_data['ingredient__name']
-            + ' ('
-            + ingredient_data['ingredient__measurement_unit']
-            + ') — '
-            + str(ingredient_data['total'])
-            for ingredient_data in ingredients
+            '{} ({}) — {}'.format(
+                item['name'],
+                item['measurement_unit'],
+                item['total'],
+            )
+            for item in ingredients
         ]
         response = HttpResponse(
             '\n'.join(lines),
@@ -219,7 +222,7 @@ class UserViewSet(RelationActionsMixin, DjoserUserViewSet):
 
     def get_serializer_class(self):
         """Return the user-with-recipes serializer for subscriptions."""
-        if self.action in ('subscribe', 'subscriptions'):
+        if self.action in {'subscribe', 'subscriptions'}:
             return UserWithRecipesSerializer
         return super().get_serializer_class()
 
@@ -227,7 +230,6 @@ class UserViewSet(RelationActionsMixin, DjoserUserViewSet):
     def subscribe(self, request, id=None):
         """Subscribe the current user to another user."""
         author = self.get_object()
-        author.recipes_count = author.recipes.count()
         return self._add_relation(author, SubscriptionSerializer, 'author')
 
     @subscribe.mapping.delete

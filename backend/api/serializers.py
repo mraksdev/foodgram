@@ -88,9 +88,11 @@ class UserFieldsMixin(serializers.Serializer):
         """Return whether the current user subscribes to this user."""
         request = self.context.get('request')
         current_user = getattr(request, 'user', None)
-        if not current_user or not current_user.is_authenticated:
-            return False
-        return current_user.subscriptions.filter(author_id=user.id).exists()
+        return bool(
+            current_user
+            and current_user.is_authenticated
+            and current_user.subscriptions.filter(author_id=user.id).exists()
+        )
 
     def get_avatar(self, obj):
         """Return the avatar URL or None."""
@@ -118,7 +120,7 @@ class UserWithRecipesSerializer(UserFieldsMixin, serializers.ModelSerializer):
     """User serializer with recipes and their count."""
 
     recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.IntegerField(read_only=True)
+    recipes_count = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -155,6 +157,13 @@ class UserWithRecipesSerializer(UserFieldsMixin, serializers.ModelSerializer):
             many=True,
             context=self.context,
         ).data
+
+    def get_recipes_count(self, obj) -> int:
+        """Return the number of user recipes."""
+        annotated = getattr(obj, 'recipes_count', None)
+        if annotated is not None:
+            return annotated
+        return obj.recipes.count()
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -213,10 +222,9 @@ class RecipeSerializer(serializers.ModelSerializer):
         """Create a recipe with ingredients and tags."""
         ingredients = validated_data.pop('recipe_ingredients')
         tags = validated_data.pop('tags')
-        recipe = Recipe.objects.create(
-            author=self.context['request'].user,
-            **validated_data,
-        )
+        request = self.context.get('request')
+        validated_data['author'] = request.user
+        recipe = super().create(validated_data)
         recipe.tags.set(tags)
         self._save_ingredients(recipe, ingredients)
         recipe.is_favorited = False
@@ -229,7 +237,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         tags = validated_data.pop('tags', None)
         recipe = super().update(instance, validated_data)
         if ingredients is not None:
-            instance.recipe_ingredients.all().delete()
+            instance.ingredients.clear()
             self._save_ingredients(instance, ingredients)
         if tags is not None:
             recipe.tags.set(tags)
@@ -261,7 +269,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'Нельзя подписаться на самого себя.'
             )
-        if Subscription.objects.filter(user=user, author=author).exists():
+        if user.subscriptions.filter(author=author).exists():
             raise serializers.ValidationError('Вы уже подписаны.')
         return author
 
@@ -274,49 +282,42 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         )
 
 
-class FavoriteSerializer(serializers.ModelSerializer):
+class UserRecipeRelationSerializer(serializers.ModelSerializer):
+    """Base serializer for a user-recipe relation."""
+
+    relation_error = ''
+
+    def validate_recipe(self, recipe):
+        """Reject a recipe already added by the current user."""
+        user = self.context['request'].user
+        if self.Meta.model.objects.filter(user=user, recipe=recipe).exists():
+            raise serializers.ValidationError(self.relation_error)
+        return recipe
+
+    def create(self, validated_data):
+        """Create a relation for the current user."""
+        user = self.context['request'].user
+        return self.Meta.model.objects.create(
+            user=user,
+            recipe=validated_data['recipe'],
+        )
+
+
+class FavoriteSerializer(UserRecipeRelationSerializer):
     """Serializer to add a recipe to the user's favorites."""
+
+    relation_error = 'Рецепт уже в избранном.'
 
     class Meta:
         model = Favorite
         fields = ('recipe',)
 
-    def validate_recipe(self, recipe):
-        """Reject a recipe already in the user's favorites."""
-        user = self.context['request'].user
-        if Favorite.objects.filter(user=user, recipe=recipe).exists():
-            raise serializers.ValidationError('Рецепт уже в избранном.')
-        return recipe
 
-    def create(self, validated_data):
-        """Create a favorite entry for the current user."""
-        user = self.context['request'].user
-        return Favorite.objects.create(
-            user=user,
-            recipe=validated_data['recipe'],
-        )
-
-
-class ShoppingCartSerializer(serializers.ModelSerializer):
+class ShoppingCartSerializer(UserRecipeRelationSerializer):
     """Serializer to add a recipe to the user's shopping cart."""
+
+    relation_error = 'Рецепт уже в списке покупок.'
 
     class Meta:
         model = ShoppingCart
         fields = ('recipe',)
-
-    def validate_recipe(self, recipe):
-        """Reject a recipe already in the user's shopping cart."""
-        user = self.context['request'].user
-        if ShoppingCart.objects.filter(user=user, recipe=recipe).exists():
-            raise serializers.ValidationError(
-                'Рецепт уже в списке покупок.'
-            )
-        return recipe
-
-    def create(self, validated_data):
-        """Create a shopping cart entry for the current user."""
-        user = self.context['request'].user
-        return ShoppingCart.objects.create(
-            user=user,
-            recipe=validated_data['recipe'],
-        )

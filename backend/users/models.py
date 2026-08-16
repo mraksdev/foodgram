@@ -18,7 +18,7 @@ class User(AbstractUser):
     )
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
+    REQUIRED_FIELDS = ('username', 'first_name', 'last_name')
 
     class Meta(AbstractUser.Meta):
         verbose_name = 'пользователь'
@@ -59,4 +59,4 @@ class Subscription(models.Model):
         ]
 
     def __str__(self) -> str:
-        return str(self.user) + ' -> ' + str(self.author)
+        return '{} -> {}'.format(self.user, self.author)

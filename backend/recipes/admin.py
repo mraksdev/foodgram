@@ -70,12 +70,10 @@ class RecipeAdmin(admin.ModelAdmin):
     @admin.display(description='автор')
     def author_link(self, recipe):
         """Return the author name as a link to the user."""
-        return (
-            '<a href="'
-            + reverse('admin:users_user_change', args=(recipe.author.id,))
-            + '">'
-            + escape(recipe.author.username)
-            + '</a>'
+        url = reverse('admin:users_user_change', args=(recipe.author.id,))
+        return '<a href="{}">{}</a>'.format(
+            url,
+            escape(recipe.author.username),
         )
 
 
