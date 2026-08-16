@@ -25,9 +25,9 @@ class Command(BaseCommand):
                 slug=slug,
             )
             created += int(was_created)
-        self.stdout.write(
-            self.style.SUCCESS(
-                f'Created {created} tags, '
-                f'{len(TAGS) - created} already existed.'
-            )
+        already_existed = len(TAGS) - created
+        message = (
+            'Created ' + str(created) + ' tags, '
+            + str(already_existed) + ' already existed.'
         )
+        self.stdout.write(self.style.SUCCESS(message))

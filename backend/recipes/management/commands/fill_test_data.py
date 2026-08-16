@@ -147,7 +147,84 @@ RECIPES = (
         ),
         ('dinner',),
     ),
+    (
+        'Домашние пельмени',
+        'elena.kozlova',
+        'Сытные домашние пельмени из свинины и говядины. '
+        'Замесите крутое тесто из муки, воды, яйца и соли, '
+        'дайте ему отдохнуть 30 минут. Пропустите через мясорубку свинину, '
+        'говядину и лук, посолите и поперчите фарш. Раскатайте тесто, '
+        'вырежьте кружки, выложите начинку и слепите пельмени. '
+        'Варите в кипящей подсоленной воде 7 минут после всплытия '
+        'и подавайте со сметаной и сливочным маслом.',
+        120,
+        (220, 160, 110),
+        (
+            ('мука хлебопекарная', 400, 'г'),
+            ('вода', 200, 'мл'),
+            ('яйца куриные', 100, 'г'),
+            ('свинина', 400, 'г'),
+            ('говядина', 300, 'г'),
+            ('лук репчатый', 150, 'г'),
+            ('соль', 10, 'г'),
+            ('перец черный молотый', 3, 'г'),
+            ('сливочное масло', 50, 'г'),
+            ('сметана', 100, 'г'),
+        ),
+        ('dinner',),
+    ),
+    (
+        'Куриный суп с лапшой',
+        'olga.orlova',
+        'Лёгкий куриный суп с домашней лапшой. '
+        'Сварите курицу до мягкости, достаньте мясо и разберите его. '
+        'В бульон добавьте нарезанный картофель и обжаренные с луком '
+        'морковь. Верните мясо, засыпьте лапшу и варите до готовности. '
+        'Посолите, поперчите, добавьте лавровый лист и свежий укроп. '
+        'Подавайте горячим.',
+        60,
+        (200, 150, 90),
+        (
+            ('курица', 500, 'г'),
+            ('вода', 2000, 'мл'),
+            ('картофель', 300, 'г'),
+            ('морковь', 100, 'г'),
+            ('лук репчатый', 80, 'г'),
+            ('лапша', 150, 'г'),
+            ('соль', 10, 'г'),
+            ('перец черный молотый', 2, 'г'),
+            ('укроп', 10, 'г'),
+            ('лавровый лист', 2, 'г'),
+        ),
+        ('lunch',),
+    ),
+    (
+        'Драники картофельные',
+        'viktor.orlova',
+        'Хрустящие драники из картофеля. Натрите картофель на мелкой тёрке, '
+        'отожмите лишнюю жидкость, добавьте тёртый лук, яйцо, муку и соль. '
+        'Хорошо перемешайте и выложите ложкой на раскалённую сковороду '
+        'с растительным маслом. Обжарьте с двух сторон до золотистой '
+        'корочки. Подавайте горячими со сметаной и чесноком.',
+        40,
+        (180, 130, 80),
+        (
+            ('картофель', 600, 'г'),
+            ('лук репчатый', 100, 'г'),
+            ('яйца куриные', 60, 'г'),
+            ('мука хлебопекарная', 40, 'г'),
+            ('соль', 5, 'г'),
+            ('растительное масло', 30, 'мл'),
+            ('сметана', 100, 'г'),
+            ('чеснок', 10, 'г'),
+        ),
+        ('dinner',),
+    ),
 )
+
+IMAGE_WIDTH = 1200
+IMAGE_HEIGHT = 800
+MAX_RGB_CHANNEL = 255
 
 
 class Command(BaseCommand):
@@ -159,11 +236,13 @@ class Command(BaseCommand):
         """Create users, recipes, images and recipe ingredients."""
         users = self._create_users()
         self._create_recipes(users)
-        self.stdout.write(
-            self.style.SUCCESS(
-                f'Demo data ready: {len(users)} users, {len(RECIPES)} recipes.'
-            )
+        users_count = len(users)
+        recipes_count = len(RECIPES)
+        message = (
+            'Demo data ready: ' + str(users_count) + ' users, '
+            + str(recipes_count) + ' recipes.'
         )
+        self.stdout.write(self.style.SUCCESS(message))
 
     def _create_users(self):
         """Create demo users idempotently and return a username map."""
@@ -184,15 +263,8 @@ class Command(BaseCommand):
 
     def _create_recipes(self, users):
         """Create demo recipes with generated images idempotently."""
-        for (
-            name,
-            author_username,
-            text,
-            cooking_time,
-            rgb,
-            ingredients,
-            tag_slugs,
-        ) in RECIPES:
+        for name, author_username, text, cooking_time, rgb, ingredients, \
+                tag_slugs in RECIPES:
             recipe, created = Recipe.objects.get_or_create(
                 name=name,
                 defaults={
@@ -202,8 +274,9 @@ class Command(BaseCommand):
                 },
             )
             if created:
+                image_code = uuid.uuid4().hex[:8]
                 recipe.image.save(
-                    f'recipe_{uuid.uuid4().hex[:8]}.jpg',
+                    'recipe_' + image_code + '.jpg',
                     self._make_image(rgb),
                 )
             recipe.tags.set(Tag.objects.filter(slug__in=tag_slugs))
@@ -213,35 +286,35 @@ class Command(BaseCommand):
     def _set_ingredients(self, recipe, ingredients):
         """Replace the recipe ingredients with the given ones."""
         recipe.recipe_ingredients.all().delete()
-        rows = []
-        for name, amount, unit in ingredients:
-            ingredient, _ = Ingredient.objects.get_or_create(
-                name=name,
-                measurement_unit=unit,
+        rows = [
+            RecipeIngredient(
+                recipe=recipe,
+                ingredient=Ingredient.objects.get_or_create(
+                    name=name,
+                    measurement_unit=unit,
+                )[0],
+                amount=amount,
             )
-            rows.append(
-                RecipeIngredient(
-                    recipe=recipe,
-                    ingredient=ingredient,
-                    amount=amount,
-                )
-            )
+            for name, amount, unit in ingredients
+        ]
         RecipeIngredient.objects.bulk_create(rows)
 
     @staticmethod
     def _make_image(rgb):
         """Generate a vertical gradient JPEG image."""
-        width, height = 1200, 800
-        image = Image.new('RGB', (width, height))
+        image = Image.new('RGB', (IMAGE_WIDTH, IMAGE_HEIGHT))
         draw = ImageDraw.Draw(image)
-        base = tuple(255 - channel for channel in rgb)
-        for y in range(height):
-            ratio = y / height
+        base = tuple(MAX_RGB_CHANNEL - channel for channel in rgb)
+        for y_index in range(IMAGE_HEIGHT):
+            ratio = y_index / IMAGE_HEIGHT
             color = tuple(
                 int(channel + (target - channel) * ratio)
                 for channel, target in zip(rgb, base)
             )
-            draw.line([(0, y), (width, y)], fill=color)
+            draw.line(
+                ((0, y_index), (IMAGE_WIDTH, y_index)),
+                fill=color,
+            )
         buffer = BytesIO()
         image.save(buffer, format='JPEG')
         return ContentFile(buffer.getvalue())

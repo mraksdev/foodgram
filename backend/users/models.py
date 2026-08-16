@@ -9,7 +9,6 @@ class User(AbstractUser):
         'адрес электронной почты',
         max_length=254,
         unique=True,
-        blank=False,
     )
     avatar = models.ImageField(
         'аватар',
@@ -50,7 +49,7 @@ class Subscription(models.Model):
         verbose_name_plural = 'подписки'
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'author'],
+                fields=('user', 'author'),
                 name='unique_subscription',
             ),
             models.CheckConstraint(
@@ -60,4 +59,4 @@ class Subscription(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f'{self.user} -> {self.author}'
+        return str(self.user) + ' -> ' + str(self.author)

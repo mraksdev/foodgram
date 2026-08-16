@@ -1,4 +1,7 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+MAX_RECIPE_INGREDIENT_AMOUNT = 32000
 
 
 class Tag(models.Model):
@@ -31,7 +34,7 @@ class Ingredient(models.Model):
         ordering = ('name',)
         constraints = [
             models.UniqueConstraint(
-                fields=['name', 'measurement_unit'],
+                fields=('name', 'measurement_unit'),
                 name='unique_ingredient',
             ),
         ]
@@ -90,80 +93,70 @@ class RecipeIngredient(models.Model):
         related_name='recipe_ingredients',
         verbose_name='ингредиент',
     )
-    amount = models.PositiveSmallIntegerField('количество')
+    amount = models.PositiveSmallIntegerField(
+        'количество',
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(MAX_RECIPE_INGREDIENT_AMOUNT),
+        ],
+    )
 
     class Meta:
         verbose_name = 'ингредиент рецепта'
         verbose_name_plural = 'ингредиенты рецепта'
         constraints = [
             models.UniqueConstraint(
-                fields=['recipe', 'ingredient'],
+                fields=('recipe', 'ingredient'),
                 name='unique_recipe_ingredient',
             ),
         ]
 
     def __str__(self) -> str:
-        return f'{self.ingredient} in {self.recipe}'
+        return str(self.ingredient) + ' in ' + str(self.recipe)
 
 
-class Favorite(models.Model):
+class UserRecipeRelation(models.Model):
+    """Abstract base for a user-recipe relation."""
+
+    user = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        verbose_name='пользователь',
+    )
+    recipe = models.ForeignKey(
+        Recipe,
+        on_delete=models.CASCADE,
+        verbose_name='рецепт',
+    )
+
+    class Meta:
+        abstract = True
+        default_related_name = '%(class)s'
+        constraints = [
+            models.UniqueConstraint(
+                fields=('user', 'recipe'),
+                name='unique_%(class)s',
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return str(self.user) + ' -> ' + str(self.recipe)
+
+
+class Favorite(UserRecipeRelation):
     """Recipe added to a user's favorites."""
 
-    user = models.ForeignKey(
-        'users.User',
-        on_delete=models.CASCADE,
-        related_name='favorites',
-        verbose_name='пользователь',
-    )
-    recipe = models.ForeignKey(
-        Recipe,
-        on_delete=models.CASCADE,
-        related_name='favorited_by',
-        verbose_name='рецепт',
-    )
-
-    class Meta:
+    class Meta(UserRecipeRelation.Meta):
         verbose_name = 'избранное'
         verbose_name_plural = 'избранное'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['user', 'recipe'],
-                name='unique_favorite',
-            ),
-        ]
-
-    def __str__(self) -> str:
-        return f'{self.user} likes {self.recipe}'
 
 
-class ShoppingCart(models.Model):
+class ShoppingCart(UserRecipeRelation):
     """Recipe added to a user's shopping cart."""
 
-    user = models.ForeignKey(
-        'users.User',
-        on_delete=models.CASCADE,
-        related_name='shopping_cart',
-        verbose_name='пользователь',
-    )
-    recipe = models.ForeignKey(
-        Recipe,
-        on_delete=models.CASCADE,
-        related_name='in_shopping_cart',
-        verbose_name='рецепт',
-    )
-
-    class Meta:
+    class Meta(UserRecipeRelation.Meta):
         verbose_name = 'список покупок'
         verbose_name_plural = 'список покупок'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['user', 'recipe'],
-                name='unique_shopping_cart',
-            ),
-        ]
-
-    def __str__(self) -> str:
-        return f'{self.user} buys {self.recipe}'
 
 
 class ShortLink(models.Model):

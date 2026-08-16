@@ -28,19 +28,21 @@ class Command(BaseCommand):
         """Read the file and save ingredients idempotently."""
         path = Path(options['path'])
         if not path.exists():
-            raise FileNotFoundError(f'Ingredients file not found: {path}')
+            raise FileNotFoundError(
+                'Ingredients file not found: ' + str(path)
+            )
         with path.open(encoding='utf-8') as file:
             items = json.load(file)
         created = 0
-        for item in items:
+        for ingredient in items:
             _, was_created = Ingredient.objects.get_or_create(
-                name=item['name'],
-                measurement_unit=item['measurement_unit'],
+                name=ingredient['name'],
+                measurement_unit=ingredient['measurement_unit'],
             )
             created += int(was_created)
-        self.stdout.write(
-            self.style.SUCCESS(
-                f'Created {created} ingredients, '
-                f'{len(items) - created} already existed.'
-            )
+        already_existed = len(items) - created
+        message = (
+            'Created ' + str(created) + ' ingredients, '
+            + str(already_existed) + ' already existed.'
         )
+        self.stdout.write(self.style.SUCCESS(message))

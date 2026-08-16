@@ -59,7 +59,7 @@ class RecipeAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Annotate recipes with the number of favorites."""
         return super().get_queryset(request).select_related('author').annotate(
-            favorite_count=Count('favorited_by'),
+            favorite_count=Count('favorite'),
         )
 
     @admin.display(description='избранное')
@@ -72,7 +72,7 @@ class RecipeAdmin(admin.ModelAdmin):
         """Return the author name as a link to the user."""
         return format_html(
             '<a href="{}">{}</a>',
-            reverse('admin:users_user_change', args=[obj.author.id]),
+            reverse('admin:users_user_change', args=(obj.author.id,)),
             obj.author.username,
         )
 
@@ -84,17 +84,18 @@ class ShortLinkAdmin(admin.ModelAdmin):
     list_display = ('id', 'recipe', 'short_id')
 
 
-@admin.register(Favorite)
-class FavoriteAdmin(admin.ModelAdmin):
-    """Admin panel for favorites."""
+class UserRecipeRelationAdmin(admin.ModelAdmin):
+    """Base admin for favorite and shopping cart entries."""
 
     list_display = ('id', 'user', 'recipe')
     search_fields = ('user__email', 'user__username', 'recipe__name')
+
+
+@admin.register(Favorite)
+class FavoriteAdmin(UserRecipeRelationAdmin):
+    """Admin panel for favorites."""
 
 
 @admin.register(ShoppingCart)
-class ShoppingCartAdmin(admin.ModelAdmin):
+class ShoppingCartAdmin(UserRecipeRelationAdmin):
     """Admin panel for shopping cart entries."""
-
-    list_display = ('id', 'user', 'recipe')
-    search_fields = ('user__email', 'user__username', 'recipe__name')

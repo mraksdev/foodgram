@@ -13,8 +13,10 @@ class Base64ImageField(serializers.ImageField):
         if isinstance(data, str) and data.startswith('data:image'):
             image_format, image_str = data.split(';base64,')
             extension = image_format.split('/')[-1]
+            file_uuid = uuid.uuid4()
+            image_name = str(file_uuid) + '.' + extension
             data = ContentFile(
                 base64.b64decode(image_str),
-                name=f'{uuid.uuid4()}.{extension}',
+                name=image_name,
             )
         return super().to_internal_value(data)
